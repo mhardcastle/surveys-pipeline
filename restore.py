@@ -2,8 +2,6 @@
 
 # restore the model which has been subtracted with killms. 
 
-# currently standalone: takes as input a FITS file and a killms model file.
-
 from astropy.io import fits
 from astropy.wcs import WCS
 import sys
