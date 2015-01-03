@@ -84,9 +84,60 @@ The basic approach is as follows (commands for each step are given below):
    catalogue and subtract them from the data with CoJones (killms.py,
    killms.qsub). Then we re-image with subtract_image.py (.qsub) and
    optionally restore the subtracted Gaussians (restore.py, .qsub).
-   The final images may be combined and catalogued with makecat.py 
+   The final images may be combined and catalogued with makecat.py . 
 
 Detailed example command list:
 ------------------------------
 
-[TBD]
+Torque commands use the job array feature -- each sub-band is a
+separate job (and so can be run on a separate node).
+
+Here I describe the process where you calibrate all the data. For a
+quick look, calibrate only sub-bands 200-209 to start with and make
+and image band 20, then go back and calibrate all the other sub-bands
+
+1. qsub -t 0-366 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg ~/lofar/surveys-pipeline/run-calib.qsub
+
+2. makeband.py /home/mjh/lofar/surveys-pipeline/example.cfg 0 36
+   (ideally run on the file server)
+
+3. Here for simplicity I give the files short names: the actual names
+   will be derived from the LOFAR observation ID.
+   gsm.py xxx yyy 4.5 gsm.skymodel
+   calibrate-stand-alone -f B20.concat.MS /home/mjh/lofar/text/bbs-phaseonly gsm.skymodel
+   ctod.py B20.concat.MS B20.image.MS
+   applybeam.py B20.image.MS
+   awimager ms=B20.image.MS image=B20-img-45 weight=briggs robust=0 npix=2048 cellsize=12arcsec data=CORRECTED padding=1.3 niter=400000 stokes=I operation=mfclark UVmin=0.1 UVmax=4.6 wmax=9000 threshold=0.01Jy
+   tofits.py B20-img-45.restored B20-img-45.restored.corr
+   blanker.py B20-img-45.restored.fits B20-img-45.restored.corr.fits
+
+   pybdsm
+   inp process_image
+   filename='B20-img-45.restored.corr.fits'
+   mean_map='zero'
+   rms_map=True
+   advanced_opts=True
+   detection_image='B20-img-45.restored.fits'
+   go
+   inp write_catalog
+   catalog_type='gaul'
+   go
+
+   I do crossmatching with STILTS:
+
+   /soft/topcat/stilts tmatch2 matcher=sky params=30 values1="RA DEC" values2="RA DEC" L246353_B20-img-45.restored.corr.pybdsm.gaul.fits /stri-data/mjh/NVSS/CATALOG41.FIT out=crossmatch.fits
+
+   At this point move the old band 20 images etc out of the way, as
+   they will be overwritten by the next step.
+
+4. qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg apply-nvss-skymodel.qsub
+
+5. qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg image.qsub
+
+6. makecat.py example.cfg
+
+7. qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg make-band-cat.qsub
+   qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg killms.qsu
+   qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg subtract-image.qsub
+   qsub -t 0-36 -v CONFIG=/home/mjh/lofar/surveys-pipeline/example.cfg restore.qsub
+

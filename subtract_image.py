@@ -65,6 +65,7 @@ uvmin=cfg.get('subtracted_image','uvmin')
 uvmax=float(cfg.get('subtracted_image','uvmax'))
 robust=cfg.get('subtracted_image','robust')
 suffix=cfg.get('subtracted_image','suffix')
+cleanup=cfg.getoption('subtracted_image','cleanup',False)
 
 bs='%02i' % band
 ms=troot+'_B'+bs+'_killMS.MS'
@@ -112,3 +113,6 @@ else:
 
 run('/home/mjh/lofar/bin/tofits.py '+imgname+'.restored')
 run('/home/mjh/lofar/bin/tofits.py '+imgname+'.restored.corr')
+
+if cleanup:
+    run('rm -r '+ims)
