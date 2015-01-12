@@ -92,7 +92,8 @@ bmaj/=cd1
 bmin/=cd2
 bmaj/=gfactor
 bmin/=gfactor
-#bpa+=90.0
+# beam is north through east
+bpa=-bpa
 print 'Gaussian axes in pixels',bmaj,bmin
 
 # do the actual restoring
