@@ -7,7 +7,6 @@ import os.path
 import numpy as np
 import lofar.bdsm as bdsm
 from astropy.io import fits
-from multiprocessing import Process
 
 def convolve_all(files,run):
     
@@ -47,7 +46,7 @@ def findrms(filename,region):
 def bs(band):
     return '_B%02i' % band
 
-def work(file):
+def makecat(file):
     print 'Making catalogue for',file
     myout=file+'.catalog'
     if not(os.path.exists(myout)):
@@ -82,9 +81,6 @@ except config.NoOptionError:
 
 # this is the suffix for the masked images, default is the default for
 # the imaging step
-
-combine=cfg.getint('catalog','combine')
-# how many bands to combine to measure fluxes
 
 doblank=cfg.getoption('catalog','blank',False)
 doconvolve=cfg.getoption('catalog','convolve',True)
@@ -186,8 +182,8 @@ fitsfile.close()
 for band in range(37):
     if included[band]:
         f=troot+bs(band)+'_'+suffix+'.restored.corr_conv.fits'
-        work(f)
+        makecat(f)
 
 # Make the master catalogue
 
-work('adaptive-stack-corr.fits')
+makecat('adaptive-stack-corr.fits')

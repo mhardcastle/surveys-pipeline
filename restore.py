@@ -66,7 +66,7 @@ m=np.load(skymodelname)
 
 # blank first
 report('Blanking')
-run('blanker.py '+imgname+'.fits '+imgname+'.corr.fits')
+run('blanker.py --threshold=1e-6 --neighbours=6 '+imgname+'.fits '+imgname+'.corr.fits')
 
 hdu=fits.open(imgname+'.fits')
 rhdu=fits.open(imgname+'.corr.fits')

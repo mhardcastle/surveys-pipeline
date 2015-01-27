@@ -71,6 +71,9 @@ bs='%02i' % band
 ms=troot+'_B'+bs+'_killMS.MS'
 ims=troot+'_B'+bs+'_'+suffix+'.MS'
 
+if not(os.path.isfile(ms+'_Sols.pickle')):
+    die('Solutions don\'t exist, killms did not run?')
+
 freq=getfreq(ms)
 uvmax*=np.sqrt(150e6/freq)
 uvmaxs='%.1f' % uvmax

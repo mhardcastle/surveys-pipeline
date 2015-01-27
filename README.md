@@ -118,6 +118,10 @@ and image band 20, then go back and calibrate all the other sub-bands
    rms_map=True
    advanced_opts=True
    detection_image='B20-img-45.restored.fits'
+   rms_box=(55,12)
+   adaptive_rms_box=True
+   adaptive_thresh=150
+   rms_box_bright=(80,20)
    go
    inp write_catalog
    catalog_type='gaul'
