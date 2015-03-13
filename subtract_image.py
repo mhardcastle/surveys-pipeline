@@ -24,7 +24,8 @@ def do_image(run,ms,suffix,npix,cellsize,padding,niter,threshold,uvmin,uvmax,wma
     c+=' data=CORRECTED padding='+padding
     c+=' niter='+niter
     c+=' stokes=I operation=mfclark UVmin='+uvmin
-    c+=' UVmax='+uvmax
+    if uvmax:
+        c+=' UVmax='+uvmax
     c+=' wmax='+str(int(wmax))
     c+=' threshold='+threshold+'Jy'
     if mask:
@@ -59,25 +60,36 @@ npix=cfg.get('subtracted_image','npix')
 cellsize=cfg.get('subtracted_image','cellsize')
 padding=cfg.get('subtracted_image','padding')
 totiter=cfg.get('subtracted_image','niter')
-maskiter=cfg.get('subtracted_image','maskiter')
 threshold=cfg.get('subtracted_image','threshold')
 uvmin=cfg.get('subtracted_image','uvmin')
-uvmax=float(cfg.get('subtracted_image','uvmax'))
+try:
+    uvmax=float(cfg.get('subtracted_image','uvmax'))
+except:
+    uvmax=None
 robust=cfg.get('subtracted_image','robust')
 suffix=cfg.get('subtracted_image','suffix')
 cleanup=cfg.getoption('subtracted_image','cleanup',False)
+if domask:
+    maskiter=cfg.get('subtracted_image','maskiter')
+
 
 bs='%02i' % band
 ms=troot+'_B'+bs+'_killMS.MS'
 ims=troot+'_B'+bs+'_'+suffix+'.MS'
 
-if not(os.path.isfile(ms+'_Sols.pickle')):
+if not(os.path.isfile(ms+'_Sols.pickle')) and not(os.path.isfile(ms+'_killMS.CohJones.sols.npz')):
     die('Solutions don\'t exist, killms did not run?')
 
-freq=getfreq(ms)
-uvmax*=np.sqrt(150e6/freq)
-uvmaxs='%.1f' % uvmax
-print 'Using uvmax',uvmaxs
+if uvmax:
+    freq=getfreq(ms)
+    uvmax*=np.sqrt(150e6/freq)
+    uvmaxs='%.1f' % uvmax
+    wmax=(3.0e8/freq)*uvmax*1.0e3
+    print 'Using uvmax',uvmaxs
+else:
+    print 'no uvmax, trying for full resolution!'
+    uvmaxs=None
+    wmax=120000
 
 if os.path.isdir(ims):
     warn('Imaging MS exists, not copying it again')
@@ -92,8 +104,6 @@ else:
 
     report('Applying beam')
     run('applybeam.py '+ims)
-
-wmax=(3.0e8/freq)*uvmax*1.0e3
 
 if domask:
     report('Doing initial unmasked image')

@@ -50,7 +50,19 @@ report('Copying data to '+copy)
 if os.path.isdir(copy):
     warn('Copy already exists, not overwriting it!')
 else:
-    run('cp -r '+orig+' '+copy)
+    report('Copying file '+orig)
 
+    file=open('NDPPP-temp-'+bs,'w')
+    file.write('msin=['+orig+']\nmsin.datacolumn = CORRECTED_DATA\nmsin.baseline = [CR]S*&\nmsout = '+copy+'\nsteps = []\n')
+    file.close()
+
+    run('NDPPP NDPPP-temp-'+bs)
+
+report('Add CASA imaging columns')
+run('/home/tasse/killMS2/MSTools.py --ms='+copy+' --Operation=CasaCols --TChunk=1')
 report('Run killms')
-run('/home/tasse/killMS/CohJones/CohJones.py --DoBar=0 --ms='+copy+' --SkyModel='+skymodelname+' --NCPU='+ncpu+' --TChunk='+tchunk)
+run('/home/mjh/killMS2/killMS.py --ms='+copy+' --SkyModel='+skymodelname+' --NCPU='+ncpu+' --TChunk='+tchunk+' --InCol=DATA --OutCol=CORRECTED_DATA --DoBar=0 --UVMinMax=1,100')
+run('mv '+copy+'/killMS.CohJones.sols.npz '+copy+'_killMS.CohJones.sols.npz')
+
+# Remove anything left behind, whether killms lived or not
+run('/home/mjh/lofar/surveys-pipeline/tidy-shm.sh')

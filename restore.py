@@ -19,6 +19,37 @@ def gaussian(xsize,ysize,x0,y0,sx,sy,pa):
     
     return ne.evaluate('exp(-(a*(X-x0)**2.0+2*b*(X-x0)*(Y-y0)+c*(Y-y0)**2.0))')
 
+def restore_gaussian(image,norm,x,y,bmaj,bmin,bpa,guard,verbose=False):
+    # deal with real image co-ords
+    yd,xd=np.shape(image)
+    if x is int:
+        xp=x
+        x=x+0.5
+        yp=y
+        y=y+0.5
+    else:
+        xp=int(np.trunc(x))
+        yp=int(np.trunc(y))
+    if verbose:
+       print x,y,xp,yp,norm
+    if xp<0 or yp<0 or xp>xd-1 or yp>yd-1:
+       raise Exception('position out of range')
+    xmin=xp-guard
+    xmax=xp+guard
+    ymin=yp-guard
+    ymax=yp+guard
+    if xmin<0:
+        xmin=0
+    if ymin<0:
+        ymin=0
+    if xmax>=xd:
+        xmax=xd-1
+    if ymax>=yd:
+        ymax=yd-1
+    x0=x-xmin
+    y0=y-ymin
+    image[ymin:ymax,xmin:xmax]+=norm*gaussian(xmax-xmin,ymax-ymin,x0,y0,bmaj,bmin,bpa)
+
 gfactor=2.0*np.sqrt(2.0*np.log(2.0))
 
 die=config.die
@@ -95,6 +126,7 @@ bmin/=gfactor
 # beam is north through east
 bpa=-bpa
 print 'Gaussian axes in pixels',bmaj,bmin
+guard=2*int(bmaj*5)
 
 # do the actual restoring
 
@@ -113,9 +145,10 @@ for c in m:
     elif np.isnan(f[int(y),int(x)]):
         print '... skipping, image blanked at this location'
     else:
-        g=gaussian(maxx,maxy,x,y,bmin,bmaj,bpa)
-        f+=flux*g
-        rf+=ratio*flux*g
+        restore_gaussian(f,flux,x,y,bmin,bmaj,bpa,guard)
+        restore_gaussian(rf,ratio[int(y),int(x)]*flux,x,y,bmin,bmaj,bpa,guard)
+#        f+=flux*g
+#        rf+=ratio*flux*g
     
 hdu.writeto(imgname+'.sr.fits',clobber=True)
 rhdu.writeto(imgname+'.corr.sr.fits',clobber=True)

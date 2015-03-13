@@ -46,6 +46,17 @@ smartdemix=cfg.getoption('calibration','smartdemix',False)
 flagib=cfg.getoption('calibration','flagintbaselines',False)
 flagbad=cfg.getoption('calibration','flagbadantennas',False)
 cra=cfg.getoption('calibration','fitcra',False)
+notransfer=cfg.getoption('calibration','notransfer',False)
+notarget=cfg.getoption('calibration','notarget',False)
+cep1format=cfg.getoption('calibration','cep1format',False)
+flagbadweight=cfg.getoption('calibration','flagbadweight',True)
+try:
+    calibskymodel=cfg.get('calibration','skymodel')
+    calibrator_skymodel=True
+    print 'Using sky model',calibskymodel
+except:
+    calibskymodel='/home/mjh/lofar/text/sources-calibrate.txt'
+    calibrator_skymodel=False
 
 # Now start the calibration
 
@@ -66,34 +77,52 @@ os.chdir(workpath)
 
 report('Unpacking files')
 
-for r in (croot,troot):
-    tarfile=unpackpath+'/'+r+'_SB'+sbs+'_uv.dppp.MS.tar'
-    if not(os.path.exists(tarfile)):
-        die('File to unpack doesn\'t exist -- '+tarfile)
-    run('tar xf '+tarfile)
+if notarget:
+    unpack=(croot,)
+else:
+    unpack=(croot,troot)
+
+if cep1format:
+    for r in unpack:
+        oldname=unpackpath+'/'+r+'/'+r+'_SAP000_SB'+sbs+'_uv.MS.dppp'
+        newname=r+'_SB'+sbs+'_uv.dppp.MS'
+        run('cp -r '+oldname+' '+newname)
+else:
+    for r in unpack:
+        tarfile=unpackpath+'/'+r+'_SB'+sbs+'_uv.dppp.MS.tar'
+        if not(os.path.exists(tarfile)):
+            die('File to unpack doesn\'t exist -- '+tarfile)
+        run('tar xf '+tarfile)
 
 origcms=croot+'_SB'+sbs+'_uv.dppp.MS'
 filtercms=croot+'_SB'+sbs+'_uv.filter.MS'
 origtms=troot+'_SB'+sbs+'_uv.dppp.MS'
 filtertms=troot+'_SB'+sbs+'_uv.filter.MS'
 
+if notarget:
+    orign=(origcms,)
+    filtr=(filtercms,)
+else:
+    orign=(origcms,origtms)
+    filtr=(filtercms,filtertms)
+
 if antennafix:
     report('Fixing the beam info')
-    for d in (origcms, origtms):
+    for d in orign:
         run('/soft/fixinfo/fixbeaminfo '+d)
 
 # flag antenna_weight>1
-
-report('Flagging bad antenna weights')
-for d in (origcms, origtms):
-    run('taql "update '+d+' set FLAG=True where any(WEIGHT_SPECTRUM>1) and ANTENNA1!=ANTENNA2"')
+if flagbadweight:
+    report('Flagging bad antenna weights')
+    for d in orign:
+        run('taql "update '+d+' set FLAG=True where any(WEIGHT_SPECTRUM>1) and ANTENNA1!=ANTENNA2"')
 
 # Here we pass autocorrelations, which should be flagged anyway
 
 if flagib: 
     report('Flagging international baselines')
     open('NDPPP.debug','w').write('Global 5\n')
-    for orig,filt in ((origcms,filtercms),(origtms,filtertms)):
+    for orig,filt in zip(orign,filtr):
         ndppp=open('NDPPP-'+sbs+'.in','w')
         ndppp.write('msin = '+orig+'\n'+
                     'msout = '+filt+'''
@@ -106,12 +135,40 @@ filter.remove = True
         run('NDPPP NDPPP-'+sbs+'.in')
 else:
     run('ln -s '+origcms+' '+filtercms)
-    run('ln -s '+origtms+' '+filtertms)
+    if not(notarget):
+        run('ln -s '+origtms+' '+filtertms)
+
+# now do preflagging if required
+
+preflag=True
+try:
+    preflag_sb=cfg.get('preflag','sbrange')
+    preflag_ants=cfg.get('preflag','antenna')
+except:
+    preflag=False
+
+if preflag:
+    report('Preflagging')
+    bits=preflag_sb.split(',')
+    sbmin=int(bits[0])
+    sbmax=int(bits[1])
+    if sb>=sbmin and sb<=sbmax:
+        report('This dataset is in the range to be flagged')
+        for ms in filtr:
+            ndppp=open('NDPPP-'+sbs+'.in','w')
+            ndppp.write('msin='+ms+'\n'+'''
+msout=.
+steps=[flag]
+flag.type=preflagger
+''')
+            ndppp.write('flag.baseline=['+preflag_ants+']')
+            ndppp.close()
+            run('NDPPP NDPPP-'+sbs+'.in')
 
 if rficonsole:
     report('Running rficonsole')
     open('rficonsole.debug','w').write('Global 5\n')
-    for f in (filtercms,filtertms):
+    for f in filtr:
         run('rficonsole -j '+str(config.getcpus())+' '+f)
 
 t = pt.table(filtercms+'/OBSERVATION', readonly=True, ack=False)
@@ -120,6 +177,9 @@ t.close()
 
 report('Running amplitude calibration')
 print 'Calibrator name is',calname
+if calibrator_skymodel:
+    # we assume this is a sky model for the calibrator, so all sources should be used.
+    calname=''
 open('bbs-reducer.debug','w').write('Global 5\n')
 if cra:
     lines=open('/home/mjh/lofar/text/bbs-transfer-timedep-cra.txt').readlines()
@@ -133,7 +193,7 @@ outfile.close()
 
 calibrated=False
 while not(calibrated):
-    run('calibrate-stand-alone -f '+filtercms+' bbs-transfer-'+sbs+'.txt /home/mjh/lofar/text/sources-calibrate.txt')
+    run('calibrate-stand-alone -f '+filtercms+' bbs-transfer-'+sbs+'.txt '+calibskymodel)
 
     # We now have a calibrated flux calibrator. Are we flagging?
 
@@ -159,15 +219,17 @@ while not(calibrated):
     else:
         calibrated=True
 
-report('Gain transfer')
-inst=croot+'_SB'+sbs+'.INST'
-run('parmexportcal in='+filtercms+'/instrument out='+inst)
-run('calibrate-stand-alone -f --parmdb '+inst+' '+filtertms+' /home/mjh/lofar/text/bbs-blank.txt /home/mjh/lofar/text/sources-dummy.txt')
+if not(notransfer):
+    report('Gain transfer')
+    inst=croot+'_SB'+sbs+'.INST'
+    run('parmexportcal in='+filtercms+'/instrument out='+inst)
+    run('calibrate-stand-alone -f --parmdb '+inst+' '+filtertms+' /home/mjh/lofar/text/bbs-blank.txt /home/mjh/lofar/text/sources-dummy.txt')
 
 if cleanup:
     report('Cleaning up')
-    for data in (filtercms,filtertms):
+    for data in filtr:
         run('rsync -av --delete --copy-links '+data+' '+processedpath)
 
     run('rm -r '+croot+'_SB'+sbs+'*')
-    run('rm -r '+troot+'_SB'+sbs+'*')
+    if not(notransfer):
+        run('rm -r '+troot+'_SB'+sbs+'*')

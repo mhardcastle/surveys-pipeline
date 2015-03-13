@@ -37,6 +37,7 @@ processedpath=cfg.get('paths','processed')
 skymodel=cfg.get('skymodel','file')
 os.chdir(processedpath)
 run=config.runner(cfg.getoption('control','dryrun',False)).run
+beam_applied=cfg.getoption('control','beam_applied',False)
 
 bs='%02i' % band
 ms=troot+'_B'+bs+'_concat.MS'
@@ -53,4 +54,7 @@ report('Clustering the sky model')
 run('/home/mjh/lofar/bin/cluster-first-skymodel.py '+outmodel+' '+clusteredmodel)
 
 report('Calibrating with the clustered model')
-run('calibrate-stand-alone --numthreads 8 -f '+ms+' /home/mjh/lofar/text/bbs-phaseonly-first '+clusteredmodel)
+if beam_applied:
+    run('calibrate-stand-alone --numthreads 8 -f '+ms+' /home/mjh/lofar/text/bbs-phaseonly-first-nobeam '+clusteredmodel)
+else:
+    run('calibrate-stand-alone --numthreads 8 -f '+ms+' /home/mjh/lofar/text/bbs-phaseonly-first '+clusteredmodel)
