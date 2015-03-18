@@ -21,24 +21,35 @@ Starting assumptions:
 
 -- you want to image the full field of view and are happy to achieve
    an off-source noise around 300 microJy/beam at ~ 20 arcsec
-   resolution. (Higher resolutions have not been tested.)
+   resolution, or 150 microJy/beam at ~ 10 arcsec. (The full 6-arcsec
+   resolution has not been tested due to memory limitations.)
 
 The basic approach is as follows (commands for each step are given below):
 
 0. A config file is used to control all aspects of the pipeline
    (example.cfg shows the syntax).
 
-1. We load in and flag the individual sub-bands for the calibrator and
+1a. We load in and flag the individual sub-bands for the calibrator and
    source (calib.py, run-calib.qsub). Various types of flagging can be
    applied at this point. The gain is then estimated from the
-   calibrator observation, and, once all noisy antennas are removed,
-   the gain is transferred from the calibrator to the source (note
-   that GAIN TRANSFER DOES NOT WORK PROPERLY FOR LOFAR at the time of
-   writing -- this code will need to be changed when a fix is
-   available). The final phases are also transferred, which mitigates
-   the effect of clock errors. (We do not fit for common rotation
-   angle as using this for gain transfer actually makes the results
-   worse.) The filtered data are written out ready for the next stage.
+   calibrator observation, and, once all noisy antennas are removed
+   (optional), the gain is transferred from the calibrator to the
+   source (note that GAIN TRANSFER DOES NOT WORK PROPERLY FOR LOFAR at
+   the time of writing -- this code will need to be changed when a fix
+   is available). The final phases are also transferred, which
+   mitigates the effect of clock errors. (We do not fit for common
+   rotation angle as using this for gain transfer actually makes the
+   results worse.) The filtered data are written out ready for the
+   next stage.
+
+OR
+
+1b. We load in and flag the sub-bands and calibrate the calibrator,
+    but then do the identification of bad sub-bands and antennae using
+    Reinout's scripts for the initial stages of facet calibration
+    (i.e. fitting the globaldb for clock-TEC, amplitude and XX/YY
+    phase difference). These solutions are then applied to the target
+    data in a separate stage.
 
 2. The data are amalgamated into 'bands' of 10 sb each. From now on,
    we only use those bands (makeband.py).
