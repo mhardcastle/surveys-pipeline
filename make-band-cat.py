@@ -1,13 +1,12 @@
 #!/usr/bin/python
 
-# make a catalogue for a single band image. This is currently
-# standalone but if it works will be incorporated into the killms part
-# of the pipeline.
+# make a catalogue for a single band image.
 
 import sys
 import os.path
 import lofar.bdsm as bdsm
 import config
+import re
 from astropy.io import fits
 
 die=config.die
@@ -17,6 +16,7 @@ warn=config.warn
 def docat(infile):
     print 'Making catalogue for',infile
     txtout=infile+'.catalog'
+    fitsout=infile+'.catalog.fits'
     smout=infile+'.skymodel'
     if os.path.isfile(smout):
         print 'Catalogue already exists!'
@@ -24,6 +24,7 @@ def docat(infile):
         img=bdsm.process_image(infile,thresh_pix=5,fix_to_beam=True,rms_box=(55,12), adaptive_rms_box=True, adaptive_thresh=150, rms_box_bright=(80,20),mean_map='zero')
         img.write_catalog(outfile=txtout,clobber='True',format='ascii')
         img.write_catalog(outfile=smout,clobber='True',format='bbs',catalog_type='gaul')
+        img.write_catalog(outfile=fitsout,clobber='True',format='fits',catalog_type='gaul')
                       
 if len(sys.argv)<2:
     die('Need a filename for config file')
@@ -49,6 +50,10 @@ flux=float(cfg.get('subtraction','flux'))
 frequency=float(cfg.get('subtraction','frequency'))
 alpha=float(cfg.get('subtraction','alpha'))
 clusters=int(cfg.get('subtraction','clusters'))
+crossmatch_filter=cfg.getoption('subtraction','crossmatch',False)
+if crossmatch_filter:
+    crossmatch_cat=cfg.get('subtraction','catalogue')
+    crossmatch_radius=cfg.get('subtraction','radius')
 
 print 'Target is',troot,'band is',band
 
@@ -72,6 +77,32 @@ if not(dryrun):
     docat(filename+'.restored.fits')
 
 catfile=filename+'.restored.fits.skymodel'
+
+# Now, if necessary, crossmatch with another catalogue to weed out rubbish
+if crossmatch_filter:
+    crossmatchname='crossmatch-B'+bs+'.fits'
+    run('/soft/topcat/stilts tmatch2 matcher=sky params='+crossmatch_radius+' values1="RA DEC" values2="RA DEC" '+filename+'.restored.fits.catalog.fits '+crossmatch_cat+' out='+crossmatchname)
+    run('mv '+catfile+' '+catfile+'.old')
+    filtered=fits.open(crossmatchname)
+    hdu=filtered[1]
+    infile=open(catfile+'.old')
+    outfile=open(catfile,'w')
+    for l in infile.readlines():
+        if 'format' in l:
+            outfile.write(l+'\n')
+        else:
+            # find Gaussian number
+            m=re.search('g(\\d*),',l)
+            if m is None:
+                print 'No Gaussian found in line >>',l,'<<'
+            else:
+                gaun=int(m.group(1))
+                for d in hdu.data:
+                    if d[0]==gaun:
+                        outfile.write(l)
+    infile.close()
+    outfile.close()
+
 outname=catfile+'.filtered'
 
 if not(dryrun):
@@ -89,4 +120,4 @@ if not(dryrun):
     outfile.close()
     infile.close()
 
-run('/home/tasse/killMS/CohJones/MakeModel.py --SkyModel='+outname+' --NCluster=30 --DoPlot=0 --CMethod=2')
+run('/home/tasse/killMS/CohJones/MakeModel.py --SkyModel='+outname+' --NCluster=30 --DoPlot=0 --CMethod=1')

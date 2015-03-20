@@ -50,6 +50,8 @@ notransfer=cfg.getoption('calibration','notransfer',False)
 notarget=cfg.getoption('calibration','notarget',False)
 cep1format=cfg.getoption('calibration','cep1format',False)
 flagbadweight=cfg.getoption('calibration','flagbadweight',True)
+skipexisting=cfg.getoption('calibration','skip_existing',False)
+
 try:
     calibskymodel=cfg.get('calibration','skymodel')
     calibrator_skymodel=True
@@ -73,6 +75,16 @@ if not(os.path.isdir(processedpath)):
 if not(os.path.isdir(unpackpath)):
     die('Path to unpack from doesn\'t exist')
 
+origcms=croot+'_SB'+sbs+'_uv.dppp.MS'
+filtercms=croot+'_SB'+sbs+'_uv.filter.MS'
+origtms=troot+'_SB'+sbs+'_uv.dppp.MS'
+filtertms=troot+'_SB'+sbs+'_uv.filter.MS'
+
+if skipexisting:
+    report('Inspecting output directory for existing files')
+    if os.path.isdir(processedpath+'/'+filtercms) and os.path.isdir(processedpath+'/'+filtertms):
+        die('Output data already exist, will not over-write them')
+
 os.chdir(workpath)
 
 report('Unpacking files')
@@ -93,11 +105,6 @@ else:
         if not(os.path.exists(tarfile)):
             die('File to unpack doesn\'t exist -- '+tarfile)
         run('tar xf '+tarfile)
-
-origcms=croot+'_SB'+sbs+'_uv.dppp.MS'
-filtercms=croot+'_SB'+sbs+'_uv.filter.MS'
-origtms=troot+'_SB'+sbs+'_uv.dppp.MS'
-filtertms=troot+'_SB'+sbs+'_uv.filter.MS'
 
 if notarget:
     orign=(origcms,)
@@ -144,15 +151,27 @@ preflag=True
 try:
     preflag_sb=cfg.get('preflag','sbrange')
     preflag_ants=cfg.get('preflag','antenna')
-except:
-    preflag=False
-
-if preflag:
-    report('Preflagging')
     bits=preflag_sb.split(',')
     sbmin=int(bits[0])
     sbmax=int(bits[1])
-    if sb>=sbmin and sb<=sbmax:
+    preflag_slist=[[sbmin,sbmax],]
+    preflag_antlist=[preflag_ants,]
+    
+except config.NoOptionError:
+    try:
+        preflag_slist=eval(cfg.get('preflag','sblist'))
+        preflag_antlist=eval(cfg.get('preflag','antlist'))
+    except config.NoOptionError:
+        preflag=False
+
+if preflag:
+    report('Preflagging')
+    preflag_ants=None
+    for i,r in enumerate(preflag_slist):
+        sbmin,sbmax=r
+        if sb>=sbmin and sb<=sbmax:
+            preflag_ants=preflag_antlist[i]
+    if preflag_ants is not None:
         report('This dataset is in the range to be flagged')
         for ms in filtr:
             ndppp=open('NDPPP-'+sbs+'.in','w')
@@ -231,5 +250,5 @@ if cleanup:
         run('rsync -av --delete --copy-links '+data+' '+processedpath)
 
     run('rm -r '+croot+'_SB'+sbs+'*')
-    if not(notransfer):
+    if not(notarget):
         run('rm -r '+troot+'_SB'+sbs+'*')

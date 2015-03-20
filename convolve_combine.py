@@ -237,6 +237,8 @@ if __name__=='__main__':
         min=0
         max=bandgroups
         while max<37:
+            if max==36:
+                max=37
             ranges.append(range(min,max))
             min=max
             max+=bandgroups
