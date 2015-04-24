@@ -66,11 +66,22 @@ report('Checking directories')
 
 if not(os.path.isdir(workpath)):
     warn('Working directory doesn\'t exist, making it')
-    os.makedirs(workpath)
+    # catch race
+    try:
+        os.makedirs(workpath)
+    except OSError:
+        pass
+    if not(os.path.isdir(workpath)):
+        die('Could not make working directory')
 
 if not(os.path.isdir(processedpath)):
     warn('Final output directory doesn\'t exist, making it')
-    os.makedirs(processedpath)
+    try:
+        os.makedirs(processedpath)
+    except OSError:
+        pass
+    if not(os.path.isdir(processedpath)):
+        die('Could not make output directory')
 
 if not(os.path.isdir(unpackpath)):
     die('Path to unpack from doesn\'t exist')
@@ -175,12 +186,12 @@ if preflag:
         report('This dataset is in the range to be flagged')
         for ms in filtr:
             ndppp=open('NDPPP-'+sbs+'.in','w')
-            ndppp.write('msin='+ms+'\n'+'''
+            ndppp.write('msin='+ms+'''
 msout=.
 steps=[flag]
 flag.type=preflagger
 ''')
-            ndppp.write('flag.baseline=['+preflag_ants+']')
+            ndppp.write('flag.baseline=['+preflag_ants+']\n')
             ndppp.close()
             run('NDPPP NDPPP-'+sbs+'.in')
 

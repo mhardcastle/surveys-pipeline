@@ -31,6 +31,10 @@ path=cfg.get('paths','processed')
 troot=cfg.get('files','target')
 suffix=cfg.get('imaging','suffix')
 tchunk=cfg.get('subtraction','tchunk')
+try:
+    dt=cfg.get('subtraction','dt')
+except:
+    dt='30'
 ncpu=cfg.get('subtraction','ncpu')
 print 'Target is',troot,'band is',band
 
@@ -61,7 +65,8 @@ else:
 report('Add CASA imaging columns')
 run('/home/tasse/killMS2/MSTools.py --ms='+copy+' --Operation=CasaCols --TChunk=1')
 report('Run killms')
-run('/home/mjh/killMS2/killMS.py --ms='+copy+' --SkyModel='+skymodelname+' --NCPU='+ncpu+' --TChunk='+tchunk+' --InCol=DATA --OutCol=CORRECTED_DATA --DoBar=0 --UVMinMax=1,100')
+run('/home/tasse/killMS_Pack/killMS2/killMS.py /home/mjh/lofar/text/KillMS.cfg --MSName='+copy+' --SkyModel='+skymodelname+' --NCPU='+ncpu+' --TChunk='+tchunk+' --dt='+dt+' --InCol=DATA --OutCol=CORRECTED_DATA --invert=1 --DoBar=0 --UVMinMax=1,100')
+#run('/home/mjh/killMS2/killMS.py --ms='+copy+' --SkyModel='+skymodelname+' --NCPU='+ncpu+' --TChunk='+tchunk+' --InCol=DATA --OutCol=CORRECTED_DATA --DoBar=0 --UVMinMax=1,100')
 run('mv '+copy+'/killMS.CohJones.sols.npz '+copy+'_killMS.CohJones.sols.npz')
 
 # Remove anything left behind, whether killms lived or not

@@ -120,4 +120,4 @@ if not(dryrun):
     outfile.close()
     infile.close()
 
-run('/home/tasse/killMS/CohJones/MakeModel.py --SkyModel='+outname+' --NCluster=30 --DoPlot=0 --CMethod=1')
+run('/home/tasse/killMS2/MakeModel.py --SkyModel='+outname+' --NCluster=30 --DoPlot=0 --CMethod=1')

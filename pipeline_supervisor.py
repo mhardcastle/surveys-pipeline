@@ -36,8 +36,8 @@ if __name__=='__main__':
         add='_img'
     os.chdir(processedpath)
 
-    suffixes=['concat.MS',imagesuffix+add+'.restored.fits',imagesuffix+add+'.restored.fits.skymodel.filtered.npy','killMS.MS_killMS.CohJones.sols.npz',subimagesuffix+add+'.restored.fits',subimagesuffix+add+'.restored.sr.fits']
-    descriptions=['concatenated data','original FITS image','killMS sky model','killMS solution','subtracted image','restored image']
+    suffixes=['concat.MS','concat.MS/instrument',imagesuffix+add+'.restored.fits',imagesuffix+add+'.restored.fits.skymodel.filtered.npy','killMS.MS_killMS.CohJones.sols.npz',subimagesuffix+add+'.restored.fits',subimagesuffix+add+'.restored.sr.fits']
+    descriptions=['concatenated data','calibrated concatenated data','original FITS image','killMS sky model','killMS solution','subtracted image','restored image']
 
     for band in range(37):
         for s,t in zip(suffixes,descriptions):
