@@ -18,6 +18,7 @@ class LocalConfigParser (ConfigParser.SafeConfigParser):
             return default
 
 NoOptionError=ConfigParser.NoOptionError
+NoSectionError=ConfigParser.NoSectionError
 
 class bcolors:
     HEADER = '\033[95m'
@@ -35,15 +36,18 @@ def report(s):
     print bcolors.OKGREEN+s+bcolors.ENDC
 
 def warn(s):
-    print bcolors.WARNING+s+bcolors.ENDC
+    print bcolors.OKBLUE+s+bcolors.ENDC
 
 class runner:
     def __init__(self,dryrun):
         self.dryrun=dryrun
-    def run(self,s):
+    def run(self,s,proceed=False):
         print s
         if not(self.dryrun):
-            return os.system(s)
+            retval=os.system(s)
+            if not(proceed) and retval!=0:
+                die('FAILED to run '+s+': return value is '+str(retval))
+            return retval
 
 def getcpus():
     nodefile=os.getenv('PBS_NODEFILE')

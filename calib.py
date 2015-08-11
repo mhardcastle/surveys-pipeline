@@ -5,6 +5,7 @@ import config
 import os.path
 import pyrap.tables as pt
 import flagrms
+import glob
 
 die=config.die
 report=config.report
@@ -26,7 +27,15 @@ sbs='%03i' % sb
 cfg=config.LocalConfigParser()
 cfg.read(filename)
 
-unpackpath=cfg.get('paths','unpack')
+do_unpack=True
+try:
+    unpackpath=cfg.get('paths','unpack')
+except config.NoOptionError:
+    # see if we have a 'copyfrom' instead
+    do_unpack=False
+    copyfrom=cfg.get('paths','copyfrom')
+    report('Will copy from directory '+copyfrom)
+
 processedpath=cfg.get('paths','processed')
 workpath=cfg.get('paths','work')
 
@@ -41,6 +50,8 @@ cleanup=cfg.getoption('control','cleanup',True)
 # Expand this section with required options -- some not implemented yet
 
 antennafix=cfg.getoption('calibration','antennafix',False)
+antennafix15=cfg.getoption('calibration','antennafix15',False)
+cep1format=cfg.getoption('calibration','cep1format',False)
 rficonsole=cfg.getoption('calibration','rficonsole',True)
 smartdemix=cfg.getoption('calibration','smartdemix',False)
 flagib=cfg.getoption('calibration','flagintbaselines',False)
@@ -48,7 +59,8 @@ flagbad=cfg.getoption('calibration','flagbadantennas',False)
 cra=cfg.getoption('calibration','fitcra',False)
 notransfer=cfg.getoption('calibration','notransfer',False)
 notarget=cfg.getoption('calibration','notarget',False)
-cep1format=cfg.getoption('calibration','cep1format',False)
+clip=cfg.getoption('calibration','clip',False)
+flagears=cfg.getoption('calibration','flagears',False)
 flagbadweight=cfg.getoption('calibration','flagbadweight',True)
 skipexisting=cfg.getoption('calibration','skip_existing',False)
 
@@ -83,7 +95,7 @@ if not(os.path.isdir(processedpath)):
     if not(os.path.isdir(processedpath)):
         die('Could not make output directory')
 
-if not(os.path.isdir(unpackpath)):
+if do_unpack and not(os.path.isdir(unpackpath)):
     die('Path to unpack from doesn\'t exist')
 
 origcms=croot+'_SB'+sbs+'_uv.dppp.MS'
@@ -98,24 +110,52 @@ if skipexisting:
 
 os.chdir(workpath)
 
-report('Unpacking files')
+if os.path.isdir(filtercms):
+    warn('Calibrator data already existed in work directory, deleting')
+    run('rm -r '+filtercms)
+if os.path.isdir(filtertms):
+    warn('Target data already existed in work directory, deleting')
+    run('rm -r '+filtertms)
 
-if notarget:
-    unpack=(croot,)
-else:
-    unpack=(croot,troot)
+if do_unpack:
+    report('Unpacking files')
 
-if cep1format:
-    for r in unpack:
-        oldname=unpackpath+'/'+r+'/'+r+'_SAP000_SB'+sbs+'_uv.MS.dppp'
-        newname=r+'_SB'+sbs+'_uv.dppp.MS'
-        run('cp -r '+oldname+' '+newname)
+    if notarget:
+        unpack=(croot,)
+    else:
+        unpack=(croot,troot)
+
+    if cep1format:
+        for r in unpack:
+            oldname=unpackpath+'/'+r+'/'+r+'_SAP000_SB'+sbs+'_uv.MS.dppp'
+            newname=r+'_SB'+sbs+'_uv.dppp.MS'
+            run('cp -r '+oldname+' '+newname)
+    else:
+        for r in unpack:
+            tarfile=unpackpath+'/'+r+'_SB'+sbs+'_uv.dppp.MS.tar'
+            if not(os.path.exists(tarfile)):
+                # OK, that was too easy. Now we should try blazar project format before giving up
+                g=glob.glob(unpackpath+'/target/*'+r+'*_SB'+sbs+'*.tar')
+                assert(len(g)<2)
+                if len(g)==1:
+                    tarfile=g[0]
+                else:
+                    g=glob.glob(unpackpath+'/calib/*'+r+'*_SB'+sbs+'*.tar')
+                    assert(len(g)<2)
+                    if len(g)==1:
+                        tarfile=g[0]
+                    else:
+                        die('File to unpack doesn\'t exist -- '+tarfile)
+            run('tar xf '+tarfile)
+            # fix up stupid LC0 format
+            lc0name=r+'_SAP000_SB'+sbs+'_uv.MS.dppp'
+            newname=r+'_SB'+sbs+'_uv.dppp.MS'
+            if os.path.isdir(r+'_SAP000_SB'+sbs+'_uv.MS.dppp'):
+                run('mv '+lc0name+' '+newname)
 else:
-    for r in unpack:
-        tarfile=unpackpath+'/'+r+'_SB'+sbs+'_uv.dppp.MS.tar'
-        if not(os.path.exists(tarfile)):
-            die('File to unpack doesn\'t exist -- '+tarfile)
-        run('tar xf '+tarfile)
+    report('Copying files')
+    run('cp -r '+copyfrom+'/target/'+troot+'*_SB'+sbs+'_uv.MS.dppp '+troot+'_SB'+sbs+'_uv.dppp.MS')
+    run('cp -r '+copyfrom+'/calib/'+croot+'*_SB'+sbs+'_uv.MS.dppp '+croot+'_SB'+sbs+'_uv.dppp.MS')
 
 if notarget:
     orign=(origcms,)
@@ -129,13 +169,29 @@ if antennafix:
     for d in orign:
         run('/soft/fixinfo/fixbeaminfo '+d)
 
+if antennafix15:
+    report('Fixing the beam info (2015 version)')
+    for d in orign:
+        run('/soft/fixinfo15/fixbeaminfo '+d)
+
 # flag antenna_weight>1
 if flagbadweight:
     report('Flagging bad antenna weights')
     for d in orign:
         run('taql "update '+d+' set FLAG=True where any(WEIGHT_SPECTRUM>1) and ANTENNA1!=ANTENNA2"')
-
 # Here we pass autocorrelations, which should be flagged anyway
+
+if clip:
+    report('Clipping')
+    for d in orign:
+        run('/home/mjh/lofar/bin/clip.py '+d)
+
+if flagears:
+    report('Flagging ears')
+    for d in orign:
+        run('/home/mjh/lofar/bin/flag_ears.py '+d+' '+sbs)
+        run('rm -r '+d)
+        run('mv '+d+'.flag '+d)
 
 if flagib: 
     report('Flagging international baselines')
@@ -168,11 +224,11 @@ try:
     preflag_slist=[[sbmin,sbmax],]
     preflag_antlist=[preflag_ants,]
     
-except config.NoOptionError:
+except config.NoSectionError,config.NoOptionError:
     try:
         preflag_slist=eval(cfg.get('preflag','sblist'))
         preflag_antlist=eval(cfg.get('preflag','antlist'))
-    except config.NoOptionError:
+    except config.NoSectionError,config.NoOptionError:
         preflag=False
 
 if preflag:

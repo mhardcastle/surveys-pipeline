@@ -65,9 +65,11 @@ for band in range(bb,be+1):
         if os.path.isdir(infile):
             ctod(infile,outfile)
             flist+='"'+outfile+'",'
+        else:
+            flist+='"",'
     report('Concatenating band')
     outfile=troot+'_B'+bs+'_concat.MS'
     file=open('NDPPP-concat.in','w')
-    file.write('msin=['+flist[:-1]+']\nmsin.datacolumn = DATA\nmsout = '+outfile+'\nsteps = []\n')
+    file.write('msin=['+flist[:-1]+']\nmsin.datacolumn = DATA\nmsout = '+outfile+'\nsteps = []\nmsin.orderms = False\nmsin.missingdata = True\n')
     file.close()
     run('NDPPP NDPPP-concat.in')

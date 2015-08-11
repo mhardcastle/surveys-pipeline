@@ -128,10 +128,10 @@ def bs(band):
 
 def makecat(file):
     print 'Making catalogue for',file
-    myout=file+'.catalog'
+    myout=file+'.catalog.fits'
     if not(os.path.exists(myout)):
-        img=bdsm.process_image(file,thresh_pix=5,detection_image='adaptive-stack.fits',fix_to_beam=True,rms_box=(55,12), adaptive_rms_box=True, adaptive_thresh=150, rms_box_bright=(80,20),mean_map='zero')
-        img.write_catalog(outfile=myout,clobber='True',format='ascii')
+        img=bdsm.process_image(file,thresh_pix=10,thresh_isl=10,detection_image='adaptive-stack-0.fits',rms_map=True,rms_box=(80,20), adaptive_rms_box=True, adaptive_thresh=80, rms_box_bright=(40,10),mean_map='zero')
+        img.write_catalog(outfile=myout,clobber='True',format='fits',catalog_type='srl')
     else:
         print 'Catalog file exists'
 
@@ -153,6 +153,7 @@ if __name__=='__main__':
 
     troot=cfg.get('files','target')
     processedpath=cfg.get('paths','processed')
+    do_makecat=cfg.getoption('combine','makecat',False)
     os.chdir(processedpath)
     run=config.runner(cfg.getoption('control','dryrun',False)).run
 
@@ -214,6 +215,7 @@ if __name__=='__main__':
     rms=[]
     iname=[]
     cname=[]
+    bands=[]
     for band in range(37):
         if doconvolve:
             imagename=troot+bs(band)+'_'+suffix+'.restored'+rs+'_conv.fits'
@@ -224,6 +226,7 @@ if __name__=='__main__':
         if os.path.isfile(imagename):
             rv=findrms(imagename,rmsregion)
             print 'Band',band,'rms is',rv
+            bands.append(band)
         else:
             rv=-1000
         rms.append(rv)
@@ -232,7 +235,7 @@ if __name__=='__main__':
 
     rms=np.array(rms)
 
-    ranges=[range(37)]
+    ranges=[bands]
     if bandgroups:
         min=0
         max=bandgroups
@@ -243,7 +246,7 @@ if __name__=='__main__':
             min=max
             max+=bandgroups
 # bodge, fix w parameters later
-    ranges.append(range(13,37))
+#    ranges.append(range(0,37))
 
     for i,r in enumerate(ranges):
     
@@ -252,10 +255,7 @@ if __name__=='__main__':
         s=0
         w=0
         medrms=np.median(rms[r])
-        print 'median rms is',np.median(rms)
-
-        # use this to make sure that FITS headers at least roughly match
-        # frequency range in use
+        print 'median rms is',medrms
 
         for band in r:
             if (rms[band]<medrms*2.5 and rms[band]>medrms/2.0):
@@ -268,6 +268,9 @@ if __name__=='__main__':
                 included[band]=True
 
         s/=w
+
+        # use this to make sure that FITS headers at least roughly match
+        # frequency range in use
         middle=r[1+len(r)/2]
         while not(included[middle]):
             middle-=1
@@ -292,3 +295,9 @@ if __name__=='__main__':
         fitsfile.writeto('adaptive-stack-corr-%i.fits' % i,clobber=True)
         fitsfile.close()
 
+if do_makecat:
+    makecat('adaptive-stack-corr-0.fits')
+    for band in range(37):
+        if included[band]:
+            f=troot+bs(band)+'_'+suffix+'.restored.corr_conv.fits'
+            makecat(f)

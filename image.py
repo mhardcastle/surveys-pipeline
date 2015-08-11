@@ -2,6 +2,7 @@
 
 # Generate the standard image
 
+import os
 import sys
 import config
 import os.path
@@ -14,16 +15,18 @@ def getfreq(ms):
     t.close()
     return freq
 
-def do_image(run,ms,suffix,npix,cellsize,padding,niter,threshold,uvmin,uvmax,wmax,robust,mask=None):
+def do_image(run,ms,suffix,npix,cellsize,padding,niter,threshold,uvmin,uvmax,wmax,robust,mask=None,operation='mfclark'):
     imgname=ms.replace('.MS','_'+suffix)
-    c='awimager ms='+ms
+    os.system('rm -r '+imgname+'*')
+    c='awimager UseMasks=False ms='+ms
     c+=' image='+imgname
     c+=' weight=briggs robust='+robust
     c+=' npix='+npix
     c+=' cellsize='+cellsize+'arcsec'
     c+=' data=CORRECTED padding='+padding
     c+=' niter='+niter
-    c+=' stokes=I operation=mfclark UVmin='+uvmin
+    c+=' stokes=I operation='+operation
+    c+=' UVmin='+uvmin
     if uvmax:
         c+=' UVmax='+uvmax
     c+=' wmax='+str(int(wmax))
@@ -55,6 +58,14 @@ troot=cfg.get('files','target')
 processedpath=cfg.get('paths','processed')
 os.chdir(processedpath)
 domask=cfg.getoption('imaging','domask',True)
+corrected=cfg.getoption('imaging','corrected',True)
+# set false if you don't want calibration applied when you image
+applybeam=cfg.getoption('imaging','applybeam',True)
+# set false if the beam was already applied, e.g. when applying calibration
+if corrected:
+    column='CORRECTED_DATA'
+else:
+    column='DATA'
 run=config.runner(cfg.getoption('control','dryrun',False)).run
 npix=cfg.get('imaging','npix')
 cellsize=cfg.get('imaging','cellsize')
@@ -86,19 +97,22 @@ else:
     uvmaxs=None
     wmax=120000
 
-if os.path.isdir(ims):
-    warn('Imaging MS exists, not copying it again')
+if applybeam:
+    if os.path.isdir(ims):
+        warn('Imaging MS exists, not copying it again')
+    else:
+        report('Copying file '+ms)
+
+        file=open('NDPPP-temp-'+bs,'w')
+        file.write('msin=['+ms+']\nmsin.datacolumn = '+column+'\nmsin.baseline = [CR]S*&\nmsout = '+ims+'\nsteps = []\n')
+        file.close()
+
+        run('NDPPP NDPPP-temp-'+bs)
+
+        report('Applying beam')
+        run('applybeam.py '+ims)
 else:
-    report('Copying file '+ms)
-
-    file=open('NDPPP-temp-'+bs,'w')
-    file.write('msin=['+ms+']\nmsin.datacolumn = CORRECTED_DATA\nmsin.baseline = [CR]S*&\nmsout = '+ims+'\nsteps = []\n')
-    file.close()
-
-    run('NDPPP NDPPP-temp-'+bs)
-
-    report('Applying beam')
-    run('applybeam.py '+ims)
+    ims=ms
 
 if domask:
     report('Doing initial unmasked image')
