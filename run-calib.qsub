@@ -20,8 +20,9 @@ echo ------------------------------------------------------
 
 module load casa
 module load lofar
-source /soft/lofar-091114/lofarinit.csh
+source /soft/lofar-070915/lofarinit.csh
 setenv PATH /home/mjh/lofar/bin:$PATH
-setenv PYTHONPATH /soft/pyrap:$PYTHONPATH
+setenv PYTHONPATH /soft/pyrap-new:$PYTHONPATH
+setenv LD_LIBRARY_PATH /soft/boost/lib:/soft/casacore-1.7.0/lib:$LD_LIBRARY_PATH
 
 /home/mjh/lofar/surveys-pipeline/calib.py $CONFIG $PBS_ARRAYID

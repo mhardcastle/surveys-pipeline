@@ -35,8 +35,14 @@ run=config.runner(cfg.getoption('control','dryrun',False)).run
 
 sbs='%03i' % band
 ms=troot+'_SB'+sbs+'_uv.filter.MS'
+if not(os.path.isdir(ms)):
+    die('MS does not exist')
+
+globaldbname = 'cal.h5' # input h5 parm file
+t = pt.table('globaldb/OBSERVATION', readonly=True, ack=False)
+calsource=t[0]['LOFAR_TARGET'][0]
 
 report('Generating clock-tec parmdb')
-run('python /home/mjh/reinout-scripts_v3/transfer_amplitudes+clock+offset.py '+ms+' '+ms+'/instrument .')
+run('python /home/mjh/lofar/surveys-pipeline/transfer_amplitudes+clock+offset.py '+ms+' '+ms+'/instrument . '+calsource)
 report('Applying clock-tec/gain')
 run('calibrate-stand-alone '+ms+' /home/mjh/lofar/text/apply-calibration-nb.txt')

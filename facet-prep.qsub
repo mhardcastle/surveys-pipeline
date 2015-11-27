@@ -1,9 +1,9 @@
 #!/bin/tcsh
 
-#PBS -N pipeline-apply-clocktec
-#PBS -l nodes=1:ppn=1
-#PBS -l pmem=10gb
-#PBS -l walltime=6:00:00
+#PBS -N pipeline-facet-prep
+#PBS -l nodes=1:ppn=8
+#PBS -l pmem=2gb
+#PBS -l walltime=24:00:00
 #PBS -k oe
 
 echo ------------------------------------------------------
@@ -23,4 +23,4 @@ source /soft/lofar-091114/lofarinit.csh
 setenv PATH /home/mjh/lofar/bin:$PATH
 setenv PYTHONPATH /soft/pyrap:$PYTHONPATH
 
-/home/mjh/lofar/surveys-pipeline/apply-clocktec.py $CONFIG $PBS_ARRAYID
+/home/mjh/lofar/surveys-pipeline/facet-prep.py $CONFIG $PBS_ARRAYID

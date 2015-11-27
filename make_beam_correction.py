@@ -24,6 +24,10 @@ cfg.read(filename)
 troot=cfg.get('files','target')
 image_suffix=cfg.get('imaging','suffix')
 processedpath=cfg.get('paths','processed')
+try:
+    beampath=cfg.get('imaging','altdir')
+except:
+    beampath=processedpath
 os.chdir(processedpath)
 run=config.runner(cfg.getoption('control','dryrun',False)).run
 
@@ -46,11 +50,11 @@ for i in range(facetstart,facetend+1,facetstep):
     # now loop over the appropriate beam images
     for band in range(i,i+facetstep):
         b1s='%02i' % band
-        beamimage=processedpath+'/'+troot+'_B'+b1s+'_'+image_suffix+'_img0.avgpb'
+        beamimage=beampath+'/'+troot+'_B'+b1s+'_'+image_suffix+'_img0.avgpb'
         beamfits=beamimage+'.fits'
-        if not(os.path.isdir(beamimage)):
-            die('Can\'t find '+beamimage)
         if not(os.path.isfile(beamfits)):
+            if not(os.path.isdir(beamimage)):
+                die('Can\'t find '+beamimage)
             run('tofits.py '+beamimage)
         else:
             print 'FITS version of beam exists, not converting'

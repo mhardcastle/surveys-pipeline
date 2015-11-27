@@ -1,9 +1,9 @@
 #!/bin/tcsh
 
-#PBS -N pipeline-apply-clocktec
-#PBS -l nodes=1:ppn=1
-#PBS -l pmem=10gb
-#PBS -l walltime=6:00:00
+#PBS -N facet-subtract
+#PBS -l nodes=1:ppn=16
+#PBS -l pmem=3gb
+#PBS -l walltime=24:00:00
 #PBS -k oe
 
 echo ------------------------------------------------------
@@ -17,10 +17,11 @@ echo PBS: job name is $PBS_JOBNAME
 echo PBS: ARRAYID = $PBS_ARRAYID
 echo ------------------------------------------------------
 
-module load casa
+setenv PATH /soft/casapy-42.2.30986-1-64b:/home/mjh/bin/postgresql/bin:${PATH}
 module load lofar
-source /soft/lofar-091114/lofarinit.csh
+source /soft/lofar-070915/lofarinit.csh
 setenv PATH /home/mjh/lofar/bin:$PATH
-setenv PYTHONPATH /soft/pyrap:$PYTHONPATH
+setenv PYTHONPATH /soft/pyrap-new:$PYTHONPATH
+setenv LD_LIBRARY_PATH /soft/boost/lib:/soft/casacore-1.7.0/lib:$LD_LIBRARY_PATH
 
-/home/mjh/lofar/surveys-pipeline/apply-clocktec.py $CONFIG $PBS_ARRAYID
+/home/mjh/lofar/surveys-pipeline/subtract-facet.py $CONFIG $PBS_ARRAYID
